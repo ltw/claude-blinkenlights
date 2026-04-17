@@ -19,27 +19,49 @@ private func pidAlive(_ pid: Int) -> Bool {
     kill(pid_t(pid), 0) == 0 || errno == EPERM
 }
 
-private func loadActiveSessions() -> [Session] {
+private struct SessionRecord {
+    let url: URL
+    let state: String
+    let cwd: String
+    let lastActivity: TimeInterval
+    let pid: Int?
+
+    var isStale: Bool {
+        if let pid, !pidAlive(pid) { return true }
+        return Date().timeIntervalSince1970 - lastActivity > activeWindow
+    }
+}
+
+private func readSessions() -> [SessionRecord] {
     let fm = FileManager.default
     let urls = (try? fm.contentsOfDirectory(at: sessionsDir(), includingPropertiesForKeys: nil)) ?? []
     return urls
         .filter { $0.pathExtension == "json" }
-        .compactMap { url -> Session? in
+        .compactMap { url in
             guard let data = try? Data(contentsOf: url),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
             else { return nil }
-
-            let lastActivity = (obj["last_activity"] as? NSNumber)?.doubleValue ?? 0
-            let pid = obj["pid"] as? Int
-            let stale = (pid.map { !pidAlive($0) } ?? false)
-                || Date().timeIntervalSince1970 - lastActivity > activeWindow
-            if stale {
-                try? fm.removeItem(at: url)
-                return nil
-            }
-            guard (obj["state"] as? String) == "active" else { return nil }
-            return Session(cwd: obj["cwd"] as? String ?? "", lastActivity: lastActivity)
+            return SessionRecord(
+                url: url,
+                state: obj["state"] as? String ?? "idle",
+                cwd: obj["cwd"] as? String ?? "",
+                lastActivity: (obj["last_activity"] as? NSNumber)?.doubleValue ?? 0,
+                pid: obj["pid"] as? Int
+            )
         }
+}
+
+private func pruneStale(_ records: [SessionRecord]) {
+    let fm = FileManager.default
+    for r in records where r.isStale {
+        try? fm.removeItem(at: r.url)
+    }
+}
+
+private func activeSessions(from records: [SessionRecord]) -> [Session] {
+    records
+        .filter { !$0.isStale && $0.state == "active" }
+        .map { Session(cwd: $0.cwd, lastActivity: $0.lastActivity) }
         .sorted { $0.lastActivity > $1.lastActivity }
 }
 
@@ -78,7 +100,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func tick() {
-        let sessions = loadActiveSessions()
+        let records = readSessions()
+        pruneStale(records)
+        let sessions = activeSessions(from: records)
         let isActive = !sessions.isEmpty
 
         if let button = statusItem.button {
