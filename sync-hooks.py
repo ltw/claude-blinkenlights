@@ -2,7 +2,7 @@
 import json, sys
 from pathlib import Path
 
-settings, hooks_dir, mode = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+settings_path, hooks_dir, mode = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 assert mode in ("install", "uninstall"), "mode must be install|uninstall"
 
 events = {
@@ -11,23 +11,29 @@ events = {
     "SessionEnd":       "session-end.sh",
 }
 
-d = json.loads(settings.read_text()) if settings.exists() else {}
-hooks = d.setdefault("hooks", {})
+config = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+event_map = config.setdefault("hooks", {})
 
-for ev, matchers in list(hooks.items()):
-    for m in matchers:
-        m["hooks"] = [h for h in m.get("hooks", []) if hooks_dir not in (h.get("command") or "")]
-    matchers[:] = [m for m in matchers if m.get("hooks")]
-    if not matchers:
-        del hooks[ev]
+def is_ours(handler):
+    return hooks_dir in (handler.get("command") or "")
+
+for event, matcher_blocks in list(event_map.items()):
+    for block in matcher_blocks:
+        block["hooks"] = [h for h in block.get("hooks", []) if not is_ours(h)]
+    matcher_blocks[:] = [b for b in matcher_blocks if b.get("hooks")]
+    if not matcher_blocks:
+        del event_map[event]
 
 if mode == "install":
-    for ev, script in events.items():
-        matchers = hooks.setdefault(ev, [])
-        block = next((m for m in matchers if m.get("matcher", "") == ""), None)
-        if block is None:
-            block = {"matcher": "", "hooks": []}
-            matchers.append(block)
-        block["hooks"].append({"type": "command", "command": f"bash {hooks_dir}/{script}"})
+    for event, script in events.items():
+        matcher_blocks = event_map.setdefault(event, [])
+        default_block = next((b for b in matcher_blocks if b.get("matcher", "") == ""), None)
+        if default_block is None:
+            default_block = {"matcher": "", "hooks": []}
+            matcher_blocks.append(default_block)
+        default_block["hooks"].append({
+            "type": "command",
+            "command": f"bash {hooks_dir}/{script}",
+        })
 
-settings.write_text(json.dumps(d, indent=2) + "\n")
+settings_path.write_text(json.dumps(config, indent=2) + "\n")
