@@ -12,21 +12,21 @@ events = {
 }
 
 config = json.loads(settings_path.read_text()) if settings_path.exists() else {}
-event_map = config.setdefault("hooks", {})
+hook_config = config.setdefault("hooks", {})
 
 def is_ours(handler):
     return hooks_dir in (handler.get("command") or "")
 
-for event, matcher_blocks in list(event_map.items()):
+for event, matcher_blocks in list(hook_config.items()):
     for block in matcher_blocks:
         block["hooks"] = [h for h in block.get("hooks", []) if not is_ours(h)]
     matcher_blocks[:] = [b for b in matcher_blocks if b.get("hooks")]
     if not matcher_blocks:
-        del event_map[event]
+        del hook_config[event]
 
 if mode == "install":
     for event, script in events.items():
-        matcher_blocks = event_map.setdefault(event, [])
+        matcher_blocks = hook_config.setdefault(event, [])
         default_block = next((b for b in matcher_blocks if b.get("matcher", "") == ""), None)
         if default_block is None:
             default_block = {"matcher": "", "hooks": []}
