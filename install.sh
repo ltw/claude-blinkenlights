@@ -1,59 +1,56 @@
 #!/usr/bin/env bash
-# Installs claude-menubar: builds the Swift app, registers hooks in ~/.claude/settings.json,
-# and sets up a LaunchAgent so it runs at login.
 set -euo pipefail
+cd "$(dirname "$0")"
 
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-BIN_DIR="$HOME/.local/bin"
+BIN="$HOME/.local/bin/claude-menubar"
 HOOKS_DIR="$HOME/.claude/hooks/claude-menubar"
-STATE_DIR="$HOME/.claude/state/sessions"
 SETTINGS="$HOME/.claude/settings.json"
-AGENT_DIR="$HOME/Library/LaunchAgents"
-AGENT_PLIST="$AGENT_DIR/io.ltw.claude-menubar.plist"
-LABEL="io.ltw.claude-menubar"
+PLIST="$HOME/Library/LaunchAgents/io.ltw.claude-menubar.plist"
 
-echo "==> Building Swift binary"
-cd "$REPO_DIR"
 swift build -c release
-BUILT_BIN="$REPO_DIR/.build/release/ClaudeMenubar"
+mkdir -p "$(dirname "$BIN")" "$HOOKS_DIR"
+cp .build/release/ClaudeMenubar "$BIN"
+cp hooks/*.sh "$HOOKS_DIR/"
 
-mkdir -p "$BIN_DIR" "$HOOKS_DIR" "$STATE_DIR" "$AGENT_DIR"
+python3 - "$SETTINGS" "$HOOKS_DIR" <<'PY'
+import json, sys
+from pathlib import Path
+settings, hooks_dir = Path(sys.argv[1]), sys.argv[2]
+events = {
+    "UserPromptSubmit": "user-prompt-submit.sh",
+    "Stop":             "stop.sh",
+    "SessionEnd":       "session-end.sh",
+}
+d = json.loads(settings.read_text()) if settings.exists() else {}
+hooks = d.setdefault("hooks", {})
+for ev, matchers in list(hooks.items()):
+    for m in matchers:
+        m["hooks"] = [h for h in m.get("hooks", []) if hooks_dir not in (h.get("command") or "")]
+    matchers[:] = [m for m in matchers if m.get("hooks")]
+    if not matchers: del hooks[ev]
+for ev, script in events.items():
+    matchers = hooks.setdefault(ev, [])
+    block = next((m for m in matchers if m.get("matcher", "") == ""), None)
+    if block is None:
+        block = {"matcher": "", "hooks": []}
+        matchers.append(block)
+    block["hooks"].append({"type": "command", "command": f"bash {hooks_dir}/{script}"})
+settings.write_text(json.dumps(d, indent=2) + "\n")
+PY
 
-echo "==> Installing binary -> $BIN_DIR/claude-menubar"
-cp "$BUILT_BIN" "$BIN_DIR/claude-menubar"
-chmod +x "$BIN_DIR/claude-menubar"
-
-echo "==> Installing hook scripts -> $HOOKS_DIR"
-cp "$REPO_DIR/hooks/"*.sh "$HOOKS_DIR/"
-chmod +x "$HOOKS_DIR/"*.sh
-
-echo "==> Merging hooks into $SETTINGS"
-python3 "$REPO_DIR/install_settings.py" "$SETTINGS" "$HOOKS_DIR"
-
-echo "==> Writing LaunchAgent -> $AGENT_PLIST"
-cat > "$AGENT_PLIST" <<PLIST
+cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key><string>$LABEL</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>$BIN_DIR/claude-menubar</string>
-  </array>
+<plist version="1.0"><dict>
+  <key>Label</key><string>io.ltw.claude-menubar</string>
+  <key>ProgramArguments</key><array><string>$BIN</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
   <key>StandardOutPath</key><string>$HOME/.claude/state/claude-menubar.log</string>
   <key>StandardErrorPath</key><string>$HOME/.claude/state/claude-menubar.err</string>
-</dict>
-</plist>
+</dict></plist>
 PLIST
 
-if launchctl list | grep -q "$LABEL"; then
-  launchctl unload "$AGENT_PLIST" 2>/dev/null || true
-fi
-launchctl load "$AGENT_PLIST"
-
-echo "==> Done. Menu bar app should appear shortly."
-echo "    Logs: ~/.claude/state/claude-menubar.log"
-echo "    State: $STATE_DIR"
+launchctl unload "$PLIST" 2>/dev/null || true
+launchctl load "$PLIST"
+echo "installed"

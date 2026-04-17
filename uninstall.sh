@@ -1,34 +1,26 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LABEL="io.ltw.claude-menubar"
-AGENT_PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+PLIST="$HOME/Library/LaunchAgents/io.ltw.claude-menubar.plist"
+HOOKS_DIR="$HOME/.claude/hooks/claude-menubar"
 SETTINGS="$HOME/.claude/settings.json"
 
-if [ -f "$AGENT_PLIST" ]; then
-  launchctl unload "$AGENT_PLIST" 2>/dev/null || true
-  rm -f "$AGENT_PLIST"
-fi
+launchctl unload "$PLIST" 2>/dev/null || true
+rm -f "$PLIST" "$HOME/.local/bin/claude-menubar"
+rm -rf "$HOOKS_DIR"
 
-rm -f "$HOME/.local/bin/claude-menubar"
-rm -rf "$HOME/.claude/hooks/claude-menubar"
-
-if [ -f "$SETTINGS" ]; then
-  python3 - "$SETTINGS" <<'PY'
+[ -f "$SETTINGS" ] && python3 - "$SETTINGS" "$HOOKS_DIR" <<'PY'
 import json, sys
 from pathlib import Path
-p = Path(sys.argv[1])
-d = json.loads(p.read_text())
-TAG = "# claude-menubar"
-for event, matchers in list(d.get("hooks", {}).items()):
+settings, hooks_dir = Path(sys.argv[1]), sys.argv[2]
+d = json.loads(settings.read_text())
+hooks = d.get("hooks", {})
+for ev, matchers in list(hooks.items()):
     for m in matchers:
-        m["hooks"] = [h for h in m.get("hooks", []) if TAG not in (h.get("command") or "")]
+        m["hooks"] = [h for h in m.get("hooks", []) if hooks_dir not in (h.get("command") or "")]
     matchers[:] = [m for m in matchers if m.get("hooks")]
-    if not matchers:
-        del d["hooks"][event]
-p.write_text(json.dumps(d, indent=2) + "\n")
-print("cleaned", p)
+    if not matchers: del hooks[ev]
+settings.write_text(json.dumps(d, indent=2) + "\n")
 PY
-fi
 
-echo "Uninstalled."
+echo "uninstalled"
