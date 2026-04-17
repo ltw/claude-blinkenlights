@@ -1,136 +1,128 @@
 import AppKit
 import Foundation
 
-// State file layout: ~/.claude/state/sessions/<session_id>.json
-// Each file: { session_id, cwd, pid, state: "active"|"idle", last_activity, started }
-//
-// "active"  = user prompt submitted, no Stop/SessionEnd yet, updated within ACTIVE_WINDOW.
-// "idle"    = anything else. Stale files (pid gone, or old) are pruned.
+private let activeWindow: TimeInterval = 600
+private let pollInterval: TimeInterval = 1.0
 
-let ACTIVE_WINDOW: TimeInterval = 600   // forgive up to 10m between hook events in one turn
-let POLL_INTERVAL: TimeInterval = 1.0
-
-struct SessionState {
-    var sessionID: String
-    var cwd: String
-    var pid: Int?
-    var state: String
-    var lastActivity: TimeInterval
+private struct Session {
+    let cwd: String
+    let lastActivity: TimeInterval
     var age: TimeInterval { Date().timeIntervalSince1970 - lastActivity }
 }
 
-func stateDir() -> URL {
+private func sessionsDir() -> URL {
     FileManager.default.homeDirectoryForCurrentUser
         .appendingPathComponent(".claude/state/sessions", isDirectory: true)
 }
 
-func pidAlive(_ pid: Int) -> Bool {
+private func pidAlive(_ pid: Int) -> Bool {
     kill(pid_t(pid), 0) == 0 || errno == EPERM
 }
 
-func loadActiveSessions() -> [SessionState] {
-    let dir = stateDir()
+private func loadActiveSessions() -> [Session] {
     let fm = FileManager.default
-    guard let items = try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
-        return []
-    }
-    var out: [SessionState] = []
-    for url in items where url.pathExtension == "json" {
-        guard let data = try? Data(contentsOf: url),
-              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
-        let s = SessionState(
-            sessionID: obj["session_id"] as? String ?? url.deletingPathExtension().lastPathComponent,
-            cwd: obj["cwd"] as? String ?? "",
-            pid: obj["pid"] as? Int,
-            state: obj["state"] as? String ?? "idle",
-            lastActivity: (obj["last_activity"] as? NSNumber)?.doubleValue ?? 0
-        )
-        if let pid = s.pid, !pidAlive(pid) {
-            try? fm.removeItem(at: url); continue
+    let urls = (try? fm.contentsOfDirectory(at: sessionsDir(), includingPropertiesForKeys: nil)) ?? []
+    return urls
+        .filter { $0.pathExtension == "json" }
+        .compactMap { url -> Session? in
+            guard let data = try? Data(contentsOf: url),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else { return nil }
+
+            let lastActivity = (obj["last_activity"] as? NSNumber)?.doubleValue ?? 0
+            let pid = obj["pid"] as? Int
+            let stale = (pid.map { !pidAlive($0) } ?? false)
+                || Date().timeIntervalSince1970 - lastActivity > activeWindow
+            if stale {
+                try? fm.removeItem(at: url)
+                return nil
+            }
+            guard (obj["state"] as? String) == "active" else { return nil }
+            return Session(cwd: obj["cwd"] as? String ?? "", lastActivity: lastActivity)
         }
-        if s.age > ACTIVE_WINDOW {
-            try? fm.removeItem(at: url); continue
-        }
-        if s.state == "active" { out.append(s) }
+        .sorted { $0.lastActivity > $1.lastActivity }
+}
+
+private func formatAge(_ age: TimeInterval) -> String {
+    switch age {
+    case ..<2:    return "now"
+    case ..<60:   return "\(Int(age))s ago"
+    case ..<3600: return "\(Int(age / 60))m ago"
+    default:      return "\(Int(age / 3600))h ago"
     }
-    return out.sorted { $0.lastActivity > $1.lastActivity }
+}
+
+private func statusImage(active: Bool) -> NSImage? {
+    let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
+    let name = active ? "circle.fill" : "circle"
+    let tint: NSColor = active ? .systemGreen : .tertiaryLabelColor
+    let label = active ? "Claude active" : "Claude idle"
+    return NSImage(systemSymbolName: name, accessibilityDescription: label)?
+        .withSymbolConfiguration(cfg)?
+        .tinted(with: tint)
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    var statusItem: NSStatusItem!
-    var timer: Timer?
-    var menu: NSMenu!
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let menu = NSMenu()
+    private var timer: Timer?
+    private lazy var activeImage = statusImage(active: true)
+    private lazy var idleImage = statusImage(active: false)
 
     func applicationDidFinishLaunching(_: Notification) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        menu = NSMenu()
         statusItem.menu = menu
         tick()
-        timer = Timer.scheduledTimer(withTimeInterval: POLL_INTERVAL, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.tick()
         }
     }
 
-    func tick() {
-        let active = loadActiveSessions()
-        render(active: active)
-    }
+    private func tick() {
+        let sessions = loadActiveSessions()
+        let isActive = !sessions.isEmpty
 
-    func render(active: [SessionState]) {
-        guard let button = statusItem.button else { return }
-        let isActive = !active.isEmpty
-
-        let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
-        let symbol = isActive ? "circle.fill" : "circle"
-        let tint: NSColor = isActive ? .systemGreen : .tertiaryLabelColor
-        let img = NSImage(systemSymbolName: symbol, accessibilityDescription: isActive ? "Claude active" : "Claude idle")?
-            .withSymbolConfiguration(cfg)
-        button.image = img?.tinted(with: tint)
-        button.imagePosition = .imageLeft
-        button.title = isActive ? " \(active.count)" : ""
-
-        rebuildMenu(active: active)
-    }
-
-    func rebuildMenu(active: [SessionState]) {
-        menu.removeAllItems()
-        let header = active.isEmpty
-            ? "Idle — kick off a prompt"
-            : "Active: \(active.count) session\(active.count == 1 ? "" : "s")"
-        let h = NSMenuItem(title: header, action: nil, keyEquivalent: "")
-        h.isEnabled = false
-        menu.addItem(h)
-        menu.addItem(.separator())
-
-        if active.isEmpty {
-            let i = NSMenuItem(title: "No sessions are responding to a prompt", action: nil, keyEquivalent: "")
-            i.isEnabled = false
-            menu.addItem(i)
-        } else {
-            for s in active {
-                let cwd = URL(fileURLWithPath: s.cwd).lastPathComponent
-                let title = "\(cwd) · \(formatAge(s.age))"
-                let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
-                item.isEnabled = false
-                menu.addItem(item)
-            }
+        if let button = statusItem.button {
+            button.image = isActive ? activeImage : idleImage
+            button.imagePosition = .imageLeft
+            button.title = isActive ? " \(sessions.count)" : ""
         }
 
+        menu.removeAllItems()
+        menu.addItem(disabled(headerText(sessions)))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Open state dir", action: #selector(openStateDir), keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
-        for i in menu.items where i.action != nil { i.target = self }
+        if sessions.isEmpty {
+            menu.addItem(disabled("No sessions are responding to a prompt"))
+        } else {
+            for s in sessions {
+                let name = URL(fileURLWithPath: s.cwd).lastPathComponent
+                menu.addItem(disabled("\(name) · \(formatAge(s.age))"))
+            }
+        }
+        menu.addItem(.separator())
+        menu.addItem(action("Open state dir", #selector(openStateDir)))
+        menu.addItem(action("Quit", #selector(quit), key: "q"))
     }
 
-    func formatAge(_ age: TimeInterval) -> String {
-        if age < 2 { return "now" }
-        if age < 60 { return "\(Int(age))s ago" }
-        if age < 3600 { return "\(Int(age/60))m ago" }
-        return "\(Int(age/3600))h ago"
+    private func headerText(_ sessions: [Session]) -> String {
+        sessions.isEmpty
+            ? "Idle — kick off a prompt"
+            : "Active: \(sessions.count) session\(sessions.count == 1 ? "" : "s")"
     }
 
-    @objc func openStateDir() { NSWorkspace.shared.open(stateDir()) }
-    @objc func quit() { NSApp.terminate(nil) }
+    private func disabled(_ title: String) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        return item
+    }
+
+    private func action(_ title: String, _ selector: Selector, key: String = "") -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: selector, keyEquivalent: key)
+        item.target = self
+        return item
+    }
+
+    @objc private func openStateDir() { NSWorkspace.shared.open(sessionsDir()) }
+    @objc private func quit() { NSApp.terminate(nil) }
 }
 
 extension NSImage {
