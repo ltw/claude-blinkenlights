@@ -1,4 +1,10 @@
 .build/
+ClaudeBlinkenlights.app/
 .swiftpm/
 Package.resolved
 *.xcodeproj
+.DS_Store
+.jj/
+.remember/
+__pycache__/
+*.pyc

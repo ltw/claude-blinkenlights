@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-set -u
+set -euo pipefail
 
+# PPID is the Claude Code process: the hook wrappers (stop.sh etc.) use
+# `exec` to replace themselves with this script, so our parent is whatever
+# invoked the wrapper.
 STATE_DIR="$HOME/.claude/state/sessions"
 mkdir -p "$STATE_DIR"
 
