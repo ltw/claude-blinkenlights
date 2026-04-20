@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        run: swift build -c release
+      - name: Test
+        run: swift test
+      - name: Assemble .app
+        run: ./build.sh
+      - name: Verify bundle layout
+        run: |
+          test -x ClaudeBlinkenlights.app/Contents/MacOS/ClaudeBlinkenlights
+          test -f ClaudeBlinkenlights.app/Contents/Info.plist
+          for f in _update.sh user-prompt-submit.sh stop.sh session-end.sh; do
+            test -x "ClaudeBlinkenlights.app/Contents/Resources/hooks/$f"
+          done
