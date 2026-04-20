@@ -2,12 +2,22 @@
 import PackageDescription
 
 let package = Package(
-    name: "ClaudeMenubar",
+    name: "ClaudeBlinkenlights",
     platforms: [.macOS(.v13)],
     targets: [
         .executableTarget(
-            name: "ClaudeMenubar",
-            path: "Sources/ClaudeMenubar"
-        )
+            name: "ClaudeBlinkenlights",
+            dependencies: ["ClaudeBlinkenlightsCore"],
+            path: "Sources/ClaudeBlinkenlights"
+        ),
+        .target(
+            name: "ClaudeBlinkenlightsCore",
+            path: "Sources/ClaudeBlinkenlightsCore"
+        ),
+        .testTarget(
+            name: "ClaudeBlinkenlightsCoreTests",
+            dependencies: ["ClaudeBlinkenlightsCore"],
+            path: "Tests/ClaudeBlinkenlightsCoreTests"
+        ),
     ]
 )

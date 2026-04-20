@@ -1,78 +1,9 @@
 import AppKit
+import ClaudeBlinkenlightsCore
 import Foundation
+import ServiceManagement
 
-private let activeWindow: TimeInterval = 600
 private let pollInterval: TimeInterval = 1.0
-
-private struct Session {
-    let cwd: String
-    let lastActivity: TimeInterval
-    var age: TimeInterval { Date().timeIntervalSince1970 - lastActivity }
-}
-
-private func sessionsDir() -> URL {
-    FileManager.default.homeDirectoryForCurrentUser
-        .appendingPathComponent(".claude/state/sessions", isDirectory: true)
-}
-
-private func pidAlive(_ pid: Int) -> Bool {
-    kill(pid_t(pid), 0) == 0 || errno == EPERM
-}
-
-private struct SessionRecord {
-    let url: URL
-    let state: String
-    let cwd: String
-    let lastActivity: TimeInterval
-    let pid: Int?
-
-    var isStale: Bool {
-        if let pid, !pidAlive(pid) { return true }
-        return Date().timeIntervalSince1970 - lastActivity > activeWindow
-    }
-}
-
-private func readSessions() -> [SessionRecord] {
-    let fm = FileManager.default
-    let urls = (try? fm.contentsOfDirectory(at: sessionsDir(), includingPropertiesForKeys: nil)) ?? []
-    return urls
-        .filter { $0.pathExtension == "json" }
-        .compactMap { url in
-            guard let data = try? Data(contentsOf: url),
-                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-            else { return nil }
-            return SessionRecord(
-                url: url,
-                state: obj["state"] as? String ?? "idle",
-                cwd: obj["cwd"] as? String ?? "",
-                lastActivity: (obj["last_activity"] as? NSNumber)?.doubleValue ?? 0,
-                pid: obj["pid"] as? Int
-            )
-        }
-}
-
-private func pruneStale(_ records: [SessionRecord]) {
-    let fm = FileManager.default
-    for r in records where r.isStale {
-        try? fm.removeItem(at: r.url)
-    }
-}
-
-private func activeSessions(from records: [SessionRecord]) -> [Session] {
-    records
-        .filter { !$0.isStale && $0.state == "active" }
-        .map { Session(cwd: $0.cwd, lastActivity: $0.lastActivity) }
-        .sorted { $0.lastActivity > $1.lastActivity }
-}
-
-private func formatAge(_ age: TimeInterval) -> String {
-    switch age {
-    case ..<2:    return "now"
-    case ..<60:   return "\(Int(age))s ago"
-    case ..<3600: return "\(Int(age / 60))m ago"
-    default:      return "\(Int(age / 3600))h ago"
-    }
-}
 
 private func statusImage(active: Bool) -> NSImage? {
     let cfg = NSImage.SymbolConfiguration(pointSize: 13, weight: .semibold)
@@ -84,19 +15,31 @@ private func statusImage(active: Bool) -> NSImage? {
         .tinted(with: tint)
 }
 
+private func bundledHooksDir() -> URL? {
+    Bundle.main.resourceURL?.appendingPathComponent("hooks", isDirectory: true)
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let menu = NSMenu()
     private var timer: Timer?
     private lazy var activeImage = statusImage(active: true)
     private lazy var idleImage = statusImage(active: false)
+    private let installer = HooksInstaller()
 
     func applicationDidFinishLaunching(_: Notification) {
         statusItem.menu = menu
+        firstRunInstallIfNeeded()
         tick()
         timer = Timer.scheduledTimer(withTimeInterval: pollInterval, repeats: true) { [weak self] _ in
             self?.tick()
         }
+    }
+
+    private func firstRunInstallIfNeeded() {
+        guard !installer.isInstalled, let source = bundledHooksDir() else { return }
+        do { try installer.install(from: source) }
+        catch { NSLog("claude-blinkenlights: first-run install failed: \(error)") }
     }
 
     private func tick() {
@@ -124,10 +67,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(action("Open state dir", #selector(openStateDir)))
+        menu.addItem(openAtLoginItem())
+        menu.addItem(.separator())
+        menu.addItem(action("Reinstall Claude hooks", #selector(reinstallHooks)))
+        menu.addItem(action("Remove Claude hooks", #selector(removeHooks)))
+        menu.addItem(.separator())
         menu.addItem(action("Quit", #selector(quit), key: "q"))
     }
 
-    private func headerText(_ sessions: [Session]) -> String {
+    private func headerText(_ sessions: [ActiveSession]) -> String {
         sessions.isEmpty
             ? "Idle — kick off a prompt"
             : "Active: \(sessions.count) session\(sessions.count == 1 ? "" : "s")"
@@ -145,7 +93,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return item
     }
 
-    @objc private func openStateDir() { NSWorkspace.shared.open(sessionsDir()) }
+    private func openAtLoginItem() -> NSMenuItem {
+        let item = action("Open at Login", #selector(toggleOpenAtLogin))
+        item.state = SMAppService.mainApp.status == .enabled ? .on : .off
+        return item
+    }
+
+    @objc private func openStateDir() { NSWorkspace.shared.open(defaultSessionsDir()) }
+
+    @objc private func toggleOpenAtLogin() {
+        do {
+            if SMAppService.mainApp.status == .enabled {
+                try SMAppService.mainApp.unregister()
+            } else {
+                try SMAppService.mainApp.register()
+            }
+        } catch {
+            NSLog("claude-blinkenlights: open-at-login toggle failed: \(error)")
+        }
+    }
+
+    @objc private func reinstallHooks() {
+        guard let source = bundledHooksDir() else { return }
+        do { try installer.install(from: source) }
+        catch { presentError("Reinstall failed", error) }
+    }
+
+    @objc private func removeHooks() {
+        let alert = NSAlert()
+        alert.messageText = "Remove Claude hooks?"
+        alert.informativeText = "The menu bar app will keep running until you quit it."
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do { try installer.uninstall() }
+        catch { presentError("Remove failed", error) }
+    }
+
+    private func presentError(_ title: String, _ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = "\(error)"
+        alert.runModal()
+    }
+
     @objc private func quit() { NSApp.terminate(nil) }
 }
 
