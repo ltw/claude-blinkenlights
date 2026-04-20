@@ -1,51 +1,87 @@
-# claude-menubar
+# claude-blinkenlights
 
-macOS menu bar indicator for Claude Code agent activity.
+macOS menu bar activity light for Claude Code. Like the LED on an old disk drive: green means the head is moving, grey means idle.
 
 Two states:
-- **active** (green, with count): at least one Claude Code session is currently responding to a prompt (between `UserPromptSubmit` and `Stop`/`SessionEnd`)
+- **active** (green, with count): at least one Claude Code session is currently responding to a prompt (between `UserPromptSubmit` and `Stop`/`SessionEnd`).
 - **idle** (grey): nothing is working on anything. Go kick off a prompt.
 
 Goal: keep Claude doing something most of the time. Grey = your cue.
 
 ## How it works
 
-Three Claude Code hooks (`UserPromptSubmit`, `Stop`, `SessionEnd`) write per-session JSON to `~/.claude/state/sessions/<session_id>.json`. A tiny Swift `NSStatusBar` app polls that directory once per second and counts sessions whose last event was a prompt rather than a Stop. Stale files (whose owning shell pid is gone, or that are older than 10 minutes) are pruned.
+Three Claude Code hooks (`UserPromptSubmit`, `Stop`, `SessionEnd`) write per-session JSON to `~/.claude/state/sessions/<session_id>.json`. A Swift `NSStatusBar` app polls that directory once per second and counts sessions whose last event was a prompt rather than a Stop. Stale entries (owning process gone, or last activity older than 10 minutes) are pruned.
+
+The app bundles the hook scripts as resources and installs them into `~/.claude/` on first launch. Claude Code picks them up via entries merged into `~/.claude/settings.json`.
+
+## Prerequisites
+
+- macOS 13 or newer
+- Xcode or the Swift 5.9+ toolchain (build time)
+- [`jq`](https://jqlang.github.io/jq/) at runtime, used by the hook scripts (`brew install jq`)
 
 ## Install
 
+Download the latest `ClaudeBlinkenlights-*.zip` from [Releases](../../releases), then:
+
 ```bash
-./install.sh
+unzip ClaudeBlinkenlights-*.zip
+xattr -dr com.apple.quarantine ClaudeBlinkenlights.app
+mv ClaudeBlinkenlights.app /Applications/
+open /Applications/ClaudeBlinkenlights.app
 ```
 
-That will:
-1. `swift build -c release` the menu bar binary into `.build/release/ClaudeMenubar`
-2. Copy it to `~/.local/bin/claude-menubar`
-3. Copy hook scripts to `~/.claude/hooks/claude-menubar/`
-4. Merge hook entries into `~/.claude/settings.json` (idempotent, tagged with `# claude-menubar`)
-5. Install a LaunchAgent so the app runs at login, and load it now.
+The release is ad-hoc signed, not notarized, so Gatekeeper will block it on first open. The `xattr` line above (or right-click → **Open** in Finder) is the workaround.
+
+## Build from source
+
+```bash
+./build.sh
+```
+
+Produces `ClaudeBlinkenlights.app` in the repo root. Drag it to `/Applications` and launch it. On first run it:
+
+1. Copies hook scripts to `~/.claude/hooks/claude-blinkenlights/`
+2. Merges hook entries into `~/.claude/settings.json` (idempotent)
+
+To start at login, open the menu and toggle **Open at Login**.
+
+macOS Gatekeeper may refuse to open a locally-built app. If it does, right-click the `.app` in Finder and choose **Open**, or run `xattr -dr com.apple.quarantine ClaudeBlinkenlights.app`.
 
 ## Uninstall
 
+1. Menu → **Remove Claude hooks** (strips entries from `settings.json` and deletes `~/.claude/hooks/claude-blinkenlights/`).
+2. Menu → **Quit**, then move `ClaudeBlinkenlights.app` to the Trash.
+
+## Development
+
 ```bash
-./uninstall.sh
+swift build           # debug build of the binary alone
+swift test            # requires full Xcode (XCTest is not in Command Line Tools)
+./build.sh            # assemble ClaudeBlinkenlights.app
 ```
 
-Removes the binary, hooks, LaunchAgent, and strips tagged hook entries from `settings.json`.
+CI runs `swift build`, `swift test`, and verifies the bundle layout on `macos-14`.
 
 ## Layout
 
 ```
 Package.swift
-Sources/ClaudeMenubar/main.swift   # the menu bar app
-hooks/                              # bash scripts Claude Code invokes
-install.sh                          # build + wire everything up
-install_settings.py                 # idempotent settings.json merge
-uninstall.sh
+Info.plist                                    # app bundle metadata
+build.sh                                      # assembles ClaudeBlinkenlights.app
+hooks/                                        # bash scripts Claude Code invokes
+Sources/ClaudeBlinkenlightsCore/              # testable logic (hook install, session parsing)
+Sources/ClaudeBlinkenlights/                  # AppKit entry point
+Tests/ClaudeBlinkenlightsCoreTests/
+.github/workflows/ci.yml
 ```
 
 ## Caveats
 
-- "Thinking" is inferred from session liveness, not from actual LLM streaming. If Claude takes 40s to produce its first tool call, that whole window shows as thinking — which is what you want.
-- If Claude Code is killed mid-session (no `Stop` / `SessionEnd` fires), the state file lingers. The app prunes entries whose pid (PPID of the hook process) is gone.
-- Hooks run synchronously; each adds ~10ms of `jq` overhead per tool call. If that matters, rewrite `_update.sh` in a compiled language.
+- "Thinking" is inferred from session liveness, not from actual LLM streaming. If Claude takes 40s to produce its first tool call, that whole window shows as active, which is what you want.
+- If Claude Code is killed mid-session (no `Stop` / `SessionEnd` fires), the state file lingers until the poller notices the pid is gone or the 10-minute activeness window expires.
+- Hooks run synchronously; each adds a small `jq` invocation. For high-churn sessions, port `_update.sh` to a compiled language.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
