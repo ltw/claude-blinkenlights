@@ -13,7 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build .app
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build universal .app
         run: ./build.sh
 
       - name: Ad-hoc sign
@@ -23,30 +26,37 @@ jobs:
             ClaudeBlinkenlights.app
           codesign --verify --deep --strict --verbose=2 ClaudeBlinkenlights.app
 
-      - name: Zip bundle
+      - name: Build DMG
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          ZIP="ClaudeBlinkenlights-${VERSION}.zip"
-          ditto -c -k --keepParent ClaudeBlinkenlights.app "$ZIP"
-          shasum -a 256 "$ZIP" > "$ZIP.sha256"
-          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+          DMG="ClaudeBlinkenlights-${VERSION}.dmg"
+          create-dmg \
+            --volname "ClaudeBlinkenlights" \
+            --window-size 600 400 \
+            --icon-size 128 \
+            --icon ClaudeBlinkenlights.app 150 200 \
+            --app-drop-link 450 200 \
+            --hide-extension ClaudeBlinkenlights.app \
+            --no-internet-enable \
+            "$DMG" \
+            ClaudeBlinkenlights.app
+          shasum -a 256 "$DMG" > "$DMG.sha256"
+          echo "DMG=$DMG" >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ${{ env.ZIP }}
-            ${{ env.ZIP }}.sha256
+            ${{ env.DMG }}
+            ${{ env.DMG }}.sha256
           body: |
-            Unsigned / ad-hoc-signed build. macOS Gatekeeper will block it on first open.
+            Universal (arm64 + x86_64) ad-hoc-signed build. macOS Gatekeeper will block it on first open.
 
-            **To run:**
-            ```
-            unzip ClaudeBlinkenlights-*.zip
-            xattr -dr com.apple.quarantine ClaudeBlinkenlights.app
-            mv ClaudeBlinkenlights.app /Applications/
-            open /Applications/ClaudeBlinkenlights.app
-            ```
-
-            Or: right-click the `.app` in Finder → **Open** → **Open** in the dialog.
+            **To install:**
+            1. Download the `.dmg` and open it.
+            2. Drag `ClaudeBlinkenlights.app` onto the `Applications` shortcut.
+            3. Launch it from `/Applications`. If Gatekeeper blocks the app, right-click it → **Open** → **Open**, or run:
+               ```
+               xattr -dr com.apple.quarantine /Applications/ClaudeBlinkenlights.app
+               ```

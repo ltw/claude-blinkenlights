@@ -22,16 +22,14 @@ The app bundles the hook scripts as resources and installs them into `~/.claude/
 
 ## Install
 
-Download the latest `ClaudeBlinkenlights-*.zip` from [Releases](../../releases), then:
+Download the latest `ClaudeBlinkenlights-*.dmg` from [Releases](../../releases). Universal (arm64 + x86_64), ad-hoc signed.
 
-```bash
-unzip ClaudeBlinkenlights-*.zip
-xattr -dr com.apple.quarantine ClaudeBlinkenlights.app
-mv ClaudeBlinkenlights.app /Applications/
-open /Applications/ClaudeBlinkenlights.app
-```
+1. Open the `.dmg` and drag `ClaudeBlinkenlights.app` onto the `Applications` shortcut.
+2. Launch it from `/Applications`. Gatekeeper will block it on first open because the build isn't notarized; right-click the app → **Open** → **Open**, or run:
 
-The release is ad-hoc signed, not notarized, so Gatekeeper will block it on first open. The `xattr` line above (or right-click → **Open** in Finder) is the workaround.
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/ClaudeBlinkenlights.app
+   ```
 
 ## Build from source
 
