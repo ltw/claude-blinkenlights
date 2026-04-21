@@ -23,11 +23,11 @@ final class SessionReaderTests: XCTestCase {
         let now = Date().timeIntervalSince1970
         try writeSession("a", [
             "session_id": "a", "cwd": "/tmp/one",
-            "state": "active", "pid": 999_999, "last_activity": now,
+            "state": "active", "pid": Int(getpid()), "last_activity": now,
         ])
         try writeSession("b", [
             "session_id": "b", "cwd": "/tmp/two",
-            "state": "idle",   "pid": 999_999, "last_activity": now,
+            "state": "idle",   "pid": Int(getpid()), "last_activity": now,
         ])
         let records = readSessions(from: tmp)
         XCTAssertEqual(records.count, 2)
