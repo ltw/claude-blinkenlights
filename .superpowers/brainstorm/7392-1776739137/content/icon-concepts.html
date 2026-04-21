@@ -1,0 +1,171 @@
+<h2>Icon concepts</h2>
+<p class="subtitle">Four directions. Each rendered as a macOS app icon (squircle). Click one to pick a direction — we'll refine from there.</p>
+
+<style>
+  .icon-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .icon-card { cursor: pointer; padding: 20px; border-radius: 14px; background: var(--surface, #1a1a1a); border: 2px solid transparent; transition: all .15s; }
+  .icon-card:hover { border-color: #4a9eff; }
+  .icon-card.selected { border-color: #22c55e; }
+  .icon-svg { width: 100%; aspect-ratio: 1; display: block; border-radius: 22%; overflow: hidden; }
+  .icon-label { margin-top: 14px; }
+  .icon-label h3 { margin: 0 0 4px; }
+  .icon-label p { margin: 0; font-size: 13px; opacity: .75; }
+</style>
+
+<div class="icon-grid">
+
+  <div class="icon-card option" data-choice="a" onclick="toggleSelect(this)">
+    <svg class="icon-svg" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bezelA" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d9d2bf"/>
+          <stop offset="1" stop-color="#b3a987"/>
+        </linearGradient>
+        <radialGradient id="ledA" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#b6ffb0"/>
+          <stop offset="0.35" stop-color="#22c55e"/>
+          <stop offset="1" stop-color="#0a4d1f"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#bezelA)"/>
+      <!-- HDD bezel details -->
+      <rect x="60" y="120" width="392" height="60" rx="8" fill="#8f8568" opacity="0.5"/>
+      <rect x="60" y="340" width="392" height="60" rx="8" fill="#8f8568" opacity="0.5"/>
+      <!-- ventilation slots -->
+      <g fill="#6b6146" opacity="0.6">
+        <rect x="90"  y="230" width="240" height="6" rx="3"/>
+        <rect x="90"  y="250" width="240" height="6" rx="3"/>
+        <rect x="90"  y="270" width="240" height="6" rx="3"/>
+      </g>
+      <!-- LED well -->
+      <circle cx="400" cy="256" r="48" fill="#2a2416"/>
+      <circle cx="400" cy="256" r="34" fill="url(#ledA)"/>
+      <!-- LED glow -->
+      <circle cx="400" cy="256" r="70" fill="#22c55e" opacity="0.25"/>
+      <!-- highlight -->
+      <ellipse cx="390" cy="246" rx="10" ry="6" fill="#ffffff" opacity="0.7"/>
+    </svg>
+    <div class="icon-label">
+      <h3>A — HDD bezel</h3>
+      <p>Classic beige 3.5" drive front, green activity LED on the right. Literal and nostalgic.</p>
+    </div>
+  </div>
+
+  <div class="icon-card option" data-choice="b" onclick="toggleSelect(this)">
+    <svg class="icon-svg" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="chasB" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#2a2a2e"/>
+          <stop offset="1" stop-color="#111114"/>
+        </linearGradient>
+        <radialGradient id="ledGreenB" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#ccffb0"/>
+          <stop offset="0.35" stop-color="#22c55e"/>
+          <stop offset="1" stop-color="#062d10"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#chasB)"/>
+      <!-- panel -->
+      <rect x="40" y="180" width="432" height="152" rx="16" fill="#07080a" stroke="#3a3a40" stroke-width="2"/>
+      <!-- 7 LEDs in a row -->
+      <g>
+        <!-- dim LEDs -->
+        <circle cx="96"  cy="256" r="24" fill="#1b2a1d"/>
+        <circle cx="156" cy="256" r="24" fill="#1b2a1d"/>
+        <circle cx="216" cy="256" r="24" fill="#1b2a1d"/>
+        <!-- lit LED (center) -->
+        <circle cx="276" cy="256" r="40" fill="#22c55e" opacity="0.3"/>
+        <circle cx="276" cy="256" r="26" fill="url(#ledGreenB)"/>
+        <ellipse cx="270" cy="250" rx="8" ry="5" fill="#fff" opacity="0.8"/>
+        <!-- dim -->
+        <circle cx="336" cy="256" r="24" fill="#1b2a1d"/>
+        <circle cx="396" cy="256" r="24" fill="#1b2a1d"/>
+        <circle cx="456" cy="256" r="24" fill="#1b2a1d"/>
+      </g>
+    </svg>
+    <div class="icon-label">
+      <h3>B — Blinkenlights row</h3>
+      <p>Literal "blinkenlights": row of LEDs on a dark chassis, one lit. Nods to mainframe panels.</p>
+    </div>
+  </div>
+
+  <div class="icon-card option" data-choice="c" onclick="toggleSelect(this)">
+    <svg class="icon-svg" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgC" cx="0.5" cy="0.5" r="0.7">
+          <stop offset="0" stop-color="#0f2516"/>
+          <stop offset="1" stop-color="#05070a"/>
+        </radialGradient>
+        <radialGradient id="ledC" cx="0.5" cy="0.45" r="0.5">
+          <stop offset="0" stop-color="#e8ffdb"/>
+          <stop offset="0.25" stop-color="#7bf05a"/>
+          <stop offset="0.6" stop-color="#22c55e"/>
+          <stop offset="1" stop-color="#0a3516"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#bgC)"/>
+      <!-- outer glow -->
+      <circle cx="256" cy="256" r="200" fill="#22c55e" opacity="0.18"/>
+      <circle cx="256" cy="256" r="140" fill="#22c55e" opacity="0.22"/>
+      <!-- LED well -->
+      <circle cx="256" cy="256" r="130" fill="#0a0a0a"/>
+      <circle cx="256" cy="256" r="120" fill="#050505"/>
+      <!-- LED -->
+      <circle cx="256" cy="256" r="96" fill="url(#ledC)"/>
+      <!-- specular -->
+      <ellipse cx="232" cy="224" rx="26" ry="16" fill="#ffffff" opacity="0.85"/>
+      <ellipse cx="280" cy="300" rx="14" ry="8" fill="#ffffff" opacity="0.3"/>
+    </svg>
+    <div class="icon-label">
+      <h3>C — Single glowing LED</h3>
+      <p>Minimalist. One bright green LED on dark. Reads at 16px in the Dock, distinctive, modern.</p>
+    </div>
+  </div>
+
+  <div class="icon-card option" data-choice="d" onclick="toggleSelect(this)">
+    <svg class="icon-svg" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="caseD" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#e6e1d1"/>
+          <stop offset="1" stop-color="#c4bc9f"/>
+        </linearGradient>
+        <radialGradient id="redD" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#ffd0ca"/>
+          <stop offset="0.4" stop-color="#ef4444"/>
+          <stop offset="1" stop-color="#4a0c0c"/>
+        </radialGradient>
+        <radialGradient id="grnD" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#b6ffb0"/>
+          <stop offset="0.4" stop-color="#22c55e"/>
+          <stop offset="1" stop-color="#0a4d1f"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#caseD)"/>
+      <!-- floppy/5.25 bay -->
+      <rect x="80" y="100" width="352" height="90" rx="6" fill="#2a2620"/>
+      <rect x="110" y="130" width="180" height="30" rx="3" fill="#100f0d"/>
+      <circle cx="380" cy="145" r="8" fill="#3a332a"/>
+      <!-- power/reset buttons -->
+      <rect x="80" y="220" width="352" height="8" fill="#8d8568" opacity=".6"/>
+      <!-- LEDs and labels -->
+      <g>
+        <!-- power LED red -->
+        <circle cx="140" cy="340" r="32" fill="#180606"/>
+        <circle cx="140" cy="340" r="22" fill="url(#redD)"/>
+        <ellipse cx="134" cy="334" rx="6" ry="4" fill="#fff" opacity=".6"/>
+        <text x="140" y="400" text-anchor="middle" font-family="-apple-system, monospace" font-size="22" fill="#3a332a" font-weight="700">PWR</text>
+        <!-- HDD LED green + glow -->
+        <circle cx="372" cy="340" r="60" fill="#22c55e" opacity=".25"/>
+        <circle cx="372" cy="340" r="32" fill="#061a0a"/>
+        <circle cx="372" cy="340" r="22" fill="url(#grnD)"/>
+        <ellipse cx="366" cy="334" rx="6" ry="4" fill="#fff" opacity=".8"/>
+        <text x="372" y="400" text-anchor="middle" font-family="-apple-system, monospace" font-size="22" fill="#3a332a" font-weight="700">HDD</text>
+      </g>
+    </svg>
+    <div class="icon-label">
+      <h3>D — Retro PC front panel</h3>
+      <p>Beige tower face with PWR + HDD LEDs labeled. Most explicit homage, most detail.</p>
+    </div>
+  </div>
+
+</div>

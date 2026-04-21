@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="chas" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2a2e"/>
+      <stop offset="1" stop-color="#111114"/>
+    </linearGradient>
+    <radialGradient id="led" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ccffb0"/>
+      <stop offset="0.35" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#062d10"/>
+    </radialGradient>
+    <clipPath id="squircle">
+      <rect x="0" y="0" width="1024" height="1024" rx="225" ry="225"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <rect width="1024" height="1024" fill="url(#chas)"/>
+
+    <!-- panel, centered -->
+    <rect x="80" y="392" width="864" height="240" rx="32" fill="#07080a" stroke="#3a3a40" stroke-width="4"/>
+
+    <!-- 7 LEDs centered on x=512, spacing 120 -->
+    <!-- dim LEDs -->
+    <circle cx="152" cy="512" r="40" fill="#1b2a1d"/>
+    <circle cx="272" cy="512" r="40" fill="#1b2a1d"/>
+    <circle cx="392" cy="512" r="40" fill="#1b2a1d"/>
+    <circle cx="512" cy="512" r="40" fill="#1b2a1d"/>
+    <circle cx="632" cy="512" r="40" fill="#1b2a1d"/>
+
+    <!-- lit: 6th LED at x=752 -->
+    <circle cx="752" cy="512" r="88" fill="#22c55e" opacity="0.3"/>
+    <circle cx="752" cy="512" r="52" fill="url(#led)"/>
+    <ellipse cx="740" cy="500" rx="16" ry="10" fill="#ffffff" opacity="0.8"/>
+
+    <circle cx="872" cy="512" r="40" fill="#1b2a1d"/>
+  </g>
+</svg>

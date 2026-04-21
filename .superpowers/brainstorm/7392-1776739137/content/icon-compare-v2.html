@@ -1,0 +1,85 @@
+<h2>A vs B (realigned)</h2>
+<p class="subtitle">B's LED row is now centered. Pick the direction to refine.</p>
+
+<style>
+  .icon-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .icon-card { cursor: pointer; padding: 20px; border-radius: 14px; background: var(--surface, #1a1a1a); border: 2px solid transparent; transition: all .15s; }
+  .icon-card:hover { border-color: #4a9eff; }
+  .icon-card.selected { border-color: #22c55e; }
+  .icon-svg { width: 100%; aspect-ratio: 1; display: block; border-radius: 22%; overflow: hidden; }
+  .icon-label { margin-top: 14px; }
+  .icon-label h3 { margin: 0 0 4px; }
+  .icon-label p { margin: 0; font-size: 13px; opacity: .75; }
+</style>
+
+<div class="icon-grid">
+
+  <div class="icon-card option" data-choice="a" onclick="toggleSelect(this)">
+    <svg class="icon-svg" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bezelA2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d9d2bf"/>
+          <stop offset="1" stop-color="#b3a987"/>
+        </linearGradient>
+        <radialGradient id="ledA2" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#b6ffb0"/>
+          <stop offset="0.35" stop-color="#22c55e"/>
+          <stop offset="1" stop-color="#0a4d1f"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#bezelA2)"/>
+      <rect x="60" y="120" width="392" height="60" rx="8" fill="#8f8568" opacity="0.5"/>
+      <rect x="60" y="340" width="392" height="60" rx="8" fill="#8f8568" opacity="0.5"/>
+      <g fill="#6b6146" opacity="0.6">
+        <rect x="90" y="230" width="240" height="6" rx="3"/>
+        <rect x="90" y="250" width="240" height="6" rx="3"/>
+        <rect x="90" y="270" width="240" height="6" rx="3"/>
+      </g>
+      <circle cx="400" cy="256" r="70" fill="#22c55e" opacity="0.25"/>
+      <circle cx="400" cy="256" r="48" fill="#2a2416"/>
+      <circle cx="400" cy="256" r="34" fill="url(#ledA2)"/>
+      <ellipse cx="390" cy="246" rx="10" ry="6" fill="#ffffff" opacity="0.7"/>
+    </svg>
+    <div class="icon-label">
+      <h3>A — HDD bezel</h3>
+      <p>Unchanged.</p>
+    </div>
+  </div>
+
+  <div class="icon-card option" data-choice="b" onclick="toggleSelect(this)">
+    <svg class="icon-svg" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="chasB2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#2a2a2e"/>
+          <stop offset="1" stop-color="#111114"/>
+        </linearGradient>
+        <radialGradient id="ledGreenB2" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stop-color="#ccffb0"/>
+          <stop offset="0.35" stop-color="#22c55e"/>
+          <stop offset="1" stop-color="#062d10"/>
+        </radialGradient>
+      </defs>
+      <rect width="512" height="512" fill="url(#chasB2)"/>
+      <!-- panel, centered vertically, symmetric margins -->
+      <rect x="40" y="196" width="432" height="120" rx="16" fill="#07080a" stroke="#3a3a40" stroke-width="2"/>
+      <!-- 7 LEDs centered on x=256, spacing 60 -->
+      <g>
+        <circle cx="76"  cy="256" r="20" fill="#1b2a1d"/>
+        <circle cx="136" cy="256" r="20" fill="#1b2a1d"/>
+        <circle cx="196" cy="256" r="20" fill="#1b2a1d"/>
+        <!-- lit center LED -->
+        <circle cx="256" cy="256" r="44" fill="#22c55e" opacity="0.3"/>
+        <circle cx="256" cy="256" r="26" fill="url(#ledGreenB2)"/>
+        <ellipse cx="250" cy="250" rx="8" ry="5" fill="#fff" opacity="0.8"/>
+        <circle cx="316" cy="256" r="20" fill="#1b2a1d"/>
+        <circle cx="376" cy="256" r="20" fill="#1b2a1d"/>
+        <circle cx="436" cy="256" r="20" fill="#1b2a1d"/>
+      </g>
+    </svg>
+    <div class="icon-label">
+      <h3>B — Blinkenlights row (centered)</h3>
+      <p>Panel and LED row symmetric. Lit LED in the middle.</p>
+    </div>
+  </div>
+
+</div>

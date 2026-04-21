@@ -6,5 +6,6 @@ Package.resolved
 .DS_Store
 .jj/
 .remember/
+.superpowers/
 __pycache__/
 *.pyc
