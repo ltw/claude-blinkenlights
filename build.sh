@@ -14,6 +14,7 @@ swift build -c release --arch arm64 --arch x86_64
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/hooks"
 cp "$BIN"              "$APP/Contents/MacOS/ClaudeBlinkenlights"
 cp Info.plist          "$APP/Contents/Info.plist"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp hooks/*.sh          "$APP/Contents/Resources/hooks/"
 chmod +x "$APP/Contents/Resources/hooks/"*.sh
 

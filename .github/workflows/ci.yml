@@ -22,6 +22,7 @@ jobs:
         run: |
           test -x ClaudeBlinkenlights.app/Contents/MacOS/ClaudeBlinkenlights
           test -f ClaudeBlinkenlights.app/Contents/Info.plist
+          test -f ClaudeBlinkenlights.app/Contents/Resources/AppIcon.icns
           for f in _update.sh user-prompt-submit.sh stop.sh session-end.sh; do
             test -x "ClaudeBlinkenlights.app/Contents/Resources/hooks/$f"
           done
